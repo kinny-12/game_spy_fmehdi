@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>الجاسوس</title>
+
+  <!-- Supabase SDK v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Arabic Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── CSS Variables ── */
+    :root {
+      --bg-deep:    #0a0a0f;
+      --bg-card:    #13131e;
+      --bg-surface: #1a1a2e;
+      --gold:       #c9a84c;
+      --gold-light: #e8c96a;
+      --gold-dim:   #7a6230;
+      --red-spy:    #c0392b;
+      --red-glow:   rgba(192, 57, 43, 0.35);
+      --green-ok:   #27ae60;
+      --green-glow: rgba(39, 174, 96, 0.3);
+      --text-main:  #f0e6cc;
+      --text-muted: #7a7a9a;
+      --text-dim:   #3a3a5a;
+      --border:     rgba(201, 168, 76, 0.18);
+      --radius-lg:  18px;
+      --radius-md:  12px;
+      --radius-sm:  8px;
+      --shadow-gold: 0 0 30px rgba(201, 168, 76, 0.12);
+      --shadow-card: 0 8px 32px rgba(0,0,0,0.55);
+      --font-display: 'Amiri', serif;
+      --font-body:    'Cairo', sans-serif;
+      --transition:   0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      overflow-x: hidden;
+      background: var(--bg-deep);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      -webkit-font-smoothing: antialiased;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* ── Background Grain & Glow ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(201,168,76,0.08) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 40% at 80% 100%, rgba(26,26,46,0.6) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Subtle noise texture */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      opacity: 0.4;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout ── */
+    #app {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 16px 40px;
+    }
+
+    /* ── Header ── */
+    .header {
+      width: 100%;
+      max-width: 440px;
+      text-align: center;
+      padding: 40px 0 28px;
+      position: relative;
+    }
+
+    .header-ornament {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .ornament-line {
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(to left, transparent, var(--gold-dim), transparent);
+      max-width: 80px;
+    }
+
+    .ornament-diamond {
+      width: 8px;
+      height: 8px;
+      background: var(--gold);
+      transform: rotate(45deg);
+      box-shadow: 0 0 10px var(--gold);
+    }
+
+    .header-title {
+      font-family: var(--font-display);
+      font-size: clamp(2.8rem, 10vw, 4rem);
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 0.02em;
+      text-shadow: 0 0 40px rgba(201,168,76,0.4), 0 2px 4px rgba(0,0,0,0.8);
+      line-height: 1.1;
+    }
+
+    .header-subtitle {
+      font-family: var(--font-body);
+      font-size: 0.8rem;
+      font-weight: 300;
+      color: var(--text-muted);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-top: 6px;
+    }
+
+    /* ── Cards ── */
+    .card {
+      width: 100%;
+      max-width: 440px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px 24px;
+      box-shadow: var(--shadow-card), var(--shadow-gold);
+      animation: fadeSlideIn 0.5s var(--transition) both;
+    }
+
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .card-section-title {
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 20px;
+      text-align: center;
+      position: relative;
+    }
+
+    .card-section-title::after {
+      content: '';
+      display: block;
+      width: 40px;
+      height: 2px;
+      background: linear-gradient(to left, transparent, var(--gold), transparent);
+      margin: 8px auto 0;
+    }
+
+    /* ── Player Buttons ── */
+    .players-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .player-btn {
+      position: relative;
+      background: var(--bg-surface);
+      border: 1.5px solid var(--text-dim);
+      border-radius: var(--radius-md);
+      padding: 18px 12px;
+      cursor: pointer;
+      transition: all var(--transition);
+      overflow: hidden;
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    .player-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(201,168,76,0.06), transparent);
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+
+    .player-btn:active { transform: scale(0.97); }
+
+    .player-btn .player-name {
+      font-family: var(--font-body);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      display: block;
+      text-align: center;
+      transition: color var(--transition);
+    }
+
+    .player-btn .player-status {
+      font-size: 0.7rem;
+      font-weight: 300;
+      color: var(--text-dim);
+      display: block;
+      text-align: center;
+      margin-top: 4px;
+      transition: color var(--transition);
+      letter-spacing: 0.05em;
+    }
+
+    /* Selected state */
+    .player-btn.selected-self {
+      border-color: var(--gold);
+      background: linear-gradient(135deg, rgba(201,168,76,0.12), rgba(201,168,76,0.04));
+      box-shadow: 0 0 20px rgba(201,168,76,0.2), inset 0 1px 0 rgba(201,168,76,0.2);
+    }
+
+    .player-btn.selected-self::before { opacity: 1; }
+
+    .player-btn.selected-self .player-name { color: var(--gold-light); }
+
+    /* Ready state (other player confirmed) */
+    .player-btn.ready-other {
+      border-color: var(--green-ok);
+      background: linear-gradient(135deg, rgba(39,174,96,0.1), rgba(39,174,96,0.03));
+      box-shadow: 0 0 14px var(--green-glow);
+      pointer-events: none;
+    }
+
+    .player-btn.ready-other .player-name { color: var(--green-ok); }
+    .player-btn.ready-other .player-status { color: var(--green-ok); opacity: 0.7; }
+
+    /* Ready indicator dot */
+    .ready-dot {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green-ok);
+      box-shadow: 0 0 8px var(--green-ok);
+      animation: pulse-dot 1.5s ease-in-out infinite;
+      display: none;
+    }
+
+    .player-btn.ready-other .ready-dot,
+    .player-btn.selected-self.is-ready .ready-dot { display: block; }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(1.3); }
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 16px 24px;
+      border: none;
+      border-radius: var(--radius-md);
+      font-family: var(--font-body);
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all var(--transition);
+      outline: none;
+      -webkit-appearance: none;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0);
+      transition: background 0.15s ease;
+    }
+
+    .btn:active::after { background: rgba(255,255,255,0.06); }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--gold) 0%, #a8832a 100%);
+      color: #0a0a0f;
+      box-shadow: 0 4px 20px rgba(201,168,76,0.35), 0 1px 0 rgba(255,255,255,0.1) inset;
+      letter-spacing: 0.05em;
+    }
+
+    .btn-primary:hover { box-shadow: 0 6px 28px rgba(201,168,76,0.5); transform: translateY(-1px); }
+    .btn-primary:active { transform: translateY(0); }
+
+    .btn-primary:disabled {
+      background: linear-gradient(135deg, #3a3a2a, #2a2a1a);
+      color: var(--text-dim);
+      box-shadow: none;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: transparent;
+      border: 1.5px solid var(--gold-dim);
+      color: var(--gold);
+      letter-spacing: 0.05em;
+    }
+
+    .btn-secondary:hover { border-color: var(--gold); background: rgba(201,168,76,0.06); }
+
+    .btn-replay {
+      background: linear-gradient(135deg, #1e3a2a, #0f2018);
+      border: 1.5px solid var(--green-ok);
+      color: #4ade80;
+      box-shadow: 0 4px 20px rgba(39,174,96,0.2);
+      letter-spacing: 0.05em;
+    }
+
+    .btn-replay:hover { box-shadow: 0 6px 28px rgba(39,174,96,0.35); transform: translateY(-1px); }
+    .btn-replay:active { transform: translateY(0); }
+
+    .btn-replay:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* ── Waiting Screen ── */
+    .waiting-counter {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .counter-num {
+      font-family: var(--font-display);
+      font-size: 3rem;
+      font-weight: 700;
+      color: var(--gold);
+      text-shadow: 0 0 20px rgba(201,168,76,0.5);
+      line-height: 1;
+    }
+
+    .counter-label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      text-align: right;
+    }
+
+    .waiting-players {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .waiting-player-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--bg-surface);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--text-dim);
+      transition: all var(--transition);
+    }
+
+    .waiting-player-row.confirmed {
+      border-color: var(--green-ok);
+      background: rgba(39,174,96,0.06);
+    }
+
+    .waiting-player-name {
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--text-muted);
+    }
+
+    .waiting-player-row.confirmed .waiting-player-name { color: var(--green-ok); }
+
+    .waiting-badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.05em;
+    }
+
+    .badge-waiting { background: rgba(255,255,255,0.05); color: var(--text-dim); }
+    .badge-ready   { background: rgba(39,174,96,0.15); color: var(--green-ok); }
+
+    /* ── Loading Spinner ── */
+    .spinner-wrap {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px 0;
+    }
+
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 2px solid var(--text-dim);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ── Game Screen ── */
+    .role-reveal-card {
+      width: 100%;
+      max-width: 440px;
+      animation: fadeSlideIn 0.6s var(--transition) both;
+    }
+
+    /* Citizen card */
+    .citizen-card {
+      background: linear-gradient(160deg, #101826, #0a1018);
+      border: 1px solid rgba(39,174,96,0.3);
+      border-radius: var(--radius-lg);
+      padding: 36px 28px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 60px rgba(39,174,96,0.06);
+      text-align: center;
+    }
+
+    .role-badge-citizen {
+      display: inline-block;
+      padding: 5px 18px;
+      background: rgba(39,174,96,0.12);
+      border: 1px solid rgba(39,174,96,0.4);
+      border-radius: 40px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--green-ok);
+      letter-spacing: 0.1em;
+      margin-bottom: 24px;
+    }
+
+    .word-label {
+      font-family: var(--font-body);
+      font-size: 0.82rem;
+      font-weight: 300;
+      color: var(--text-muted);
+      letter-spacing: 0.12em;
+      margin-bottom: 10px;
+    }
+
+    .secret-word {
+      font-family: var(--font-display);
+      font-size: clamp(2.5rem, 14vw, 4rem);
+      font-weight: 700;
+      color: var(--text-main);
+      text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+      line-height: 1.1;
+      margin-bottom: 8px;
+      position: relative;
+    }
+
+    /* Pulsing shimmer on secret word */
+    .secret-word::after {
+      content: attr(data-word);
+      position: absolute;
+      inset: 0;
+      color: transparent;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%);
+      background-size: 200% 100%;
+      -webkit-background-clip: text;
+      animation: shimmer 3s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    .citizen-player-name {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 18px;
+      letter-spacing: 0.08em;
+    }
+
+    .citizen-player-name strong {
+      color: var(--text-main);
+      font-weight: 700;
+    }
+
+    /* Spy card */
+    .spy-card {
+      background: linear-gradient(160deg, #1a0808, #100405);
+      border: 1px solid rgba(192,57,43,0.35);
+      border-radius: var(--radius-lg);
+      padding: 36px 28px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 60px rgba(192,57,43,0.08);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .spy-card::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 200px;
+      height: 200px;
+      background: radial-gradient(circle, rgba(192,57,43,0.15) 0%, transparent 70%);
+      animation: spy-glow-pulse 2.5s ease-in-out infinite;
+    }
+
+    @keyframes spy-glow-pulse {
+      0%, 100% { opacity: 0.6; transform: translateX(-50%) scale(1); }
+      50%       { opacity: 1;   transform: translateX(-50%) scale(1.2); }
+    }
+
+    .role-badge-spy {
+      display: inline-block;
+      padding: 5px 18px;
+      background: rgba(192,57,43,0.15);
+      border: 1px solid rgba(192,57,43,0.5);
+      border-radius: 40px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--red-spy);
+      letter-spacing: 0.1em;
+      margin-bottom: 24px;
+      position: relative;
+    }
+
+    .spy-eye-icon {
+      position: relative;
+      margin: 0 auto 16px;
+      width: 64px;
+      height: 64px;
+    }
+
+    .spy-eye-icon svg {
+      width: 64px;
+      height: 64px;
+      color: var(--red-spy);
+      filter: drop-shadow(0 0 12px rgba(192,57,43,0.6));
+    }
+
+    .spy-text-main {
+      font-family: var(--font-display);
+      font-size: clamp(1.6rem, 8vw, 2.2rem);
+      font-weight: 700;
+      color: #e74c3c;
+      text-shadow: 0 0 20px rgba(192,57,43,0.5);
+      line-height: 1.2;
+      position: relative;
+    }
+
+    .spy-text-sub {
+      font-family: var(--font-body);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 12px;
+      line-height: 1.7;
+      position: relative;
+    }
+
+    .spy-player-name {
+      font-size: 0.75rem;
+      color: rgba(192,57,43,0.6);
+      margin-top: 18px;
+      letter-spacing: 0.08em;
+      position: relative;
+    }
+
+    .spy-player-name strong {
+      color: rgba(192,57,43,0.9);
+    }
+
+    /* ── Replay Section ── */
+    .replay-section {
+      width: 100%;
+      max-width: 440px;
+      margin-top: 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 22px 20px;
+      box-shadow: var(--shadow-card);
+      animation: fadeSlideIn 0.6s 0.15s var(--transition) both;
+    }
+
+    .replay-title {
+      font-family: var(--font-body);
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-align: center;
+      margin-bottom: 14px;
+      letter-spacing: 0.06em;
+    }
+
+    .replay-votes-row {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .replay-vote-chip {
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      background: rgba(255,255,255,0.04);
+      color: var(--text-dim);
+      border: 1px solid var(--text-dim);
+      transition: all var(--transition);
+    }
+
+    .replay-vote-chip.voted {
+      background: rgba(39,174,96,0.12);
+      color: var(--green-ok);
+      border-color: rgba(39,174,96,0.4);
+    }
+
+    .replay-progress {
+      font-size: 0.78rem;
+      text-align: center;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+
+    .replay-progress span {
+      color: var(--green-ok);
+      font-weight: 700;
+    }
+
+    /* ── Toast Notification ── */
+    #toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 24px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-main);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      z-index: 999;
+      transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.35s ease;
+      opacity: 0;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* ── Transition Loading overlay ── */
+    #transition-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg-deep);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+
+    #transition-overlay.visible {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .transition-text {
+      font-family: var(--font-display);
+      font-size: 1.3rem;
+      color: var(--gold);
+      letter-spacing: 0.08em;
+    }
+
+    /* ── Section Divider ── */
+    .divider {
+      width: 100%;
+      max-width: 440px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0 0;
+    }
+
+    .divider-line { flex: 1; height: 1px; background: var(--border); }
+    .divider-text { font-size: 0.72rem; color: var(--text-dim); letter-spacing: 0.1em; white-space: nowrap; }
+
+    /* ── Connection status ── */
+    .conn-status {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      z-index: 50;
+    }
+
+    .conn-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-dim);
+      transition: background 0.3s ease;
+    }
+
+    .conn-dot.online  { background: var(--green-ok); box-shadow: 0 0 6px var(--green-ok); }
+    .conn-dot.offline { background: var(--red-spy); }
+
+    /* ── Screens management ── */
+    .screen { display: none; flex-direction: column; align-items: center; width: 100%; }
+    .screen.active { display: flex; }
+
+    /* ── Pulse animation for "waiting" elements ── */
+    @keyframes gentle-pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.6; }
+    }
+
+    .pulsing { animation: gentle-pulse 2s ease-in-out infinite; }
+
+    /* ── Scroll ── */
+    html { scroll-behavior: smooth; }
+  </style>
+</head>
+
+<body>
+
+  <!-- Connection Status -->
+  <div class="conn-status">
+    <div class="conn-dot" id="conn-dot"></div>
+    <span id="conn-label">جاري الاتصال...</span>
+  </div>
+
+  <!-- Transition Overlay -->
+  <div id="transition-overlay">
+    <div class="spinner"></div>
+    <div class="transition-text">جاري توزيع الأدوار...</div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+  <div id="app">
+
+    <!-- ─────────────── HEADER ─────────────── -->
+    <header class="header">
+      <div class="header-ornament">
+        <div class="ornament-line"></div>
+        <div class="ornament-diamond"></div>
+        <div class="ornament-line" style="transform:scaleX(-1)"></div>
+      </div>
+      <h1 class="header-title">الجاسوس</h1>
+      <p class="header-subtitle">Al Jasous &middot; لعبة الكشف والخداع</p>
+    </header>
+
+    <!-- ─────────────── SCREEN 1: LOGIN ─────────────── -->
+    <div class="screen active" id="screen-login">
+
+      <div class="card">
+        <p class="card-section-title">اختر اسمك</p>
+        <div class="players-grid" id="players-grid">
+          <!-- filled by JS -->
+        </div>
+
+        <button class="btn btn-primary" id="btn-ready" disabled>
+          جاهز
+        </button>
+      </div>
+
+      <!-- Waiting indicator (hidden initially) -->
+      <div class="divider" id="divider-wait" style="display:none">
+        <div class="divider-line"></div>
+        <span class="divider-text">في انتظار بقية اللاعبين</span>
+        <div class="divider-line"></div>
+      </div>
+
+      <div class="card" id="card-waiting" style="display:none; margin-top:16px;">
+        <p class="card-section-title">حالة اللاعبين</p>
+        <div class="waiting-players" id="waiting-players-list"></div>
+        <div class="spinner-wrap pulsing">
+          <div class="spinner"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ─────────────── SCREEN 2: GAME ─────────────── -->
+    <div class="screen" id="screen-game">
+
+      <!-- Role reveal card — filled dynamically -->
+      <div class="role-reveal-card" id="role-reveal-card"></div>
+
+      <!-- Replay section -->
+      <div class="replay-section" id="replay-section">
+        <p class="replay-title">موافقة الجميع مطلوبة للعبة جديدة</p>
+        <div class="replay-votes-row" id="replay-votes-row"></div>
+        <p class="replay-progress" id="replay-progress">
+          <span id="replay-count">0</span>/4 موافقون
+        </p>
+        <button class="btn btn-replay" id="btn-replay">
+          إعادة اللعب
+        </button>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       JAVASCRIPT — Game Logic & Supabase Sync
+  ══════════════════════════════════════════ -->
+  <script>
+    'use strict';
+
+    /* ─── CONFIG: Replace with your Supabase credentials ─── */
+    const SUPABASE_URL  = 'VOTRE_SUPABASE_URL';
+    const SUPABASE_KEY  = 'VOTRE_SUPABASE_ANON_KEY';
+
+    /* ─── Players & Words ─── */
+    const PLAYER_NAMES = ['ishak', 'mehdi', 'chahinez', 'souhila'];
+
+    const ARABIC_DISPLAY = {
+      ishak:    'إسحاق',
+      mehdi:    'مهدي',
+      chahinez: 'شهينز',
+      souhila:  'سهيلة',
+    };
+
+    const SECRET_WORDS = [
+      'تفاحة','سيارة','شمس','قهوة','كتاب','شاطئ','موسيقى','طيارة',
+      'مطبخ','برتقال','جبل','قطار','مدرسة','نهر','ثلاجة','هاتف',
+      'سينما','مفتاح','حديقة','ساعة','باب','نافذة','حذاء','قميص',
+      'مصباح','كرسي','طاولة','دراجة','مطر','برق','صحراء','قمر',
+    ];
+
+    /* ─── State ─── */
+    let myName       = null;
+    let myReady      = false;
+    let hasVotedReplay = false;
+    let session      = null;
+
+    /* ─── Supabase Client ─── */
+    const { createClient } = supabase;
+    const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    /* ══════════ UTILITIES ══════════ */
+    function showToast(msg, duration = 2800) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), duration);
+    }
+
+    function setConnStatus(online) {
+      const dot   = document.getElementById('conn-dot');
+      const label = document.getElementById('conn-label');
+      if (online) {
+        dot.className = 'conn-dot online';
+        label.textContent = 'متصل';
+      } else {
+        dot.className = 'conn-dot offline';
+        label.textContent = 'غير متصل';
+      }
+    }
+
+    function showTransition(visible) {
+      const el = document.getElementById('transition-overlay');
+      if (visible) el.classList.add('visible');
+      else         el.classList.remove('visible');
+    }
+
+    function switchScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function pickRandom(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    /* ══════════ SUPABASE HELPERS ══════════ */
+    async function fetchSession() {
+      const { data, error } = await sb
+        .from('game_session')
+        .select('*')
+        .eq('id', 'main')
+        .single();
+
+      if (error) { console.error('fetchSession:', error); return null; }
+      return data;
+    }
+
+    async function updateSession(fields) {
+      const { error } = await sb
+        .from('game_session')
+        .update({ ...fields, updated_at: new Date().toISOString() })
+        .eq('id', 'main');
+
+      if (error) console.error('updateSession:', error);
+    }
+
+    /* ══════════ BUILD LOGIN SCREEN ══════════ */
+    function buildPlayersGrid() {
+      const grid = document.getElementById('players-grid');
+      grid.innerHTML = '';
+
+      PLAYER_NAMES.forEach(name => {
+        const btn = document.createElement('button');
+        btn.className   = 'player-btn';
+        btn.id          = `pbtn-${name}`;
+        btn.dataset.name = name;
+        btn.innerHTML = `
+          <div class="ready-dot"></div>
+          <span class="player-name">${ARABIC_DISPLAY[name]}</span>
+          <span class="player-status">اضغط للاختيار</span>
+        `;
+        btn.addEventListener('click', () => onSelectPlayer(name));
+        grid.appendChild(btn);
+      });
+    }
+
+    function onSelectPlayer(name) {
+      if (myReady) return; // already confirmed
+
+      // Check if someone else already claimed this name
+      const readyList = (session && session.ready_players) ? session.ready_players : [];
+      if (readyList.includes(name) && name !== myName) {
+        showToast('هذا اللاعب جاهز بالفعل على جهاز آخر');
+        return;
+      }
+
+      myName = name;
+      PLAYER_NAMES.forEach(n => {
+        const b = document.getElementById(`pbtn-${n}`);
+        b.classList.remove('selected-self');
+        b.querySelector('.player-status').textContent = 'اضغط للاختيار';
+      });
+
+      const btn = document.getElementById(`pbtn-${name}`);
+      btn.classList.add('selected-self');
+      btn.querySelector('.player-status').textContent = 'تم الاختيار';
+
+      document.getElementById('btn-ready').disabled = false;
+    }
+
+    /* ══════════ READY BUTTON ══════════ */
+    document.getElementById('btn-ready').addEventListener('click', async () => {
+      if (!myName || myReady) return;
+
+      const currentSession = await fetchSession();
+      if (!currentSession) { showToast('خطأ في الاتصال'); return; }
+
+      const readyPlayers = currentSession.ready_players || [];
+
+      if (readyPlayers.includes(myName)) {
+        showToast('أنت جاهز بالفعل!');
+        myReady = true;
+        lockReadyUI();
+        return;
+      }
+
+      const updated = [...readyPlayers, myName];
+
+      if (updated.length > 4) { showToast('هناك أكثر من 4 لاعبين!'); return; }
+
+      myReady = true;
+      lockReadyUI();
+
+      if (updated.length === 4) {
+        // Last player — trigger game start
+        const word   = pickRandom(SECRET_WORDS);
+        const spy    = pickRandom(PLAYER_NAMES);
+        await updateSession({
+          phase:         'playing',
+          ready_players: updated,
+          secret_word:   word,
+          spy_player:    spy,
+          replay_votes:  [],
+        });
+      } else {
+        await updateSession({ ready_players: updated });
+      }
+    });
+
+    function lockReadyUI() {
+      const readyBtn = document.getElementById('btn-ready');
+      readyBtn.textContent = 'في انتظار الآخرين...';
+      readyBtn.disabled    = true;
+
+      const selBtn = document.getElementById(`pbtn-${myName}`);
+      if (selBtn) selBtn.classList.add('is-ready');
+
+      // Show waiting panel
+      document.getElementById('divider-wait').style.display = 'flex';
+      document.getElementById('card-waiting').style.display  = 'block';
+
+      updateWaitingPanel((session && session.ready_players) || [myName]);
+    }
+
+    function updateWaitingPanel(readyList) {
+      const container = document.getElementById('waiting-players-list');
+      container.innerHTML = '';
+
+      PLAYER_NAMES.forEach(name => {
+        const isReady = readyList.includes(name);
+        const row     = document.createElement('div');
+        row.className = `waiting-player-row${isReady ? ' confirmed' : ''}`;
+        row.innerHTML = `
+          <span class="waiting-player-name">${ARABIC_DISPLAY[name]}</span>
+          <span class="waiting-badge ${isReady ? 'badge-ready' : 'badge-waiting'}">
+            ${isReady ? 'جاهز' : 'ينتظر'}
+          </span>
+        `;
+        container.appendChild(row);
+      });
+
+      // Also update player grid dots
+      PLAYER_NAMES.forEach(name => {
+        const btn = document.getElementById(`pbtn-${name}`);
+        if (!btn) return;
+        if (readyList.includes(name) && name !== myName) {
+          btn.classList.remove('selected-self');
+          btn.classList.add('ready-other');
+          btn.querySelector('.player-status').textContent = 'جاهز';
+        }
+      });
+    }
+
+    /* ══════════ BUILD GAME SCREEN ══════════ */
+    function buildGameScreen(data) {
+      const isSpy = (data.spy_player === myName);
+
+      const card = document.getElementById('role-reveal-card');
+      card.innerHTML = '';
+
+      if (isSpy) {
+        // SPY card
+        card.innerHTML = `
+          <div class="spy-card">
+            <span class="role-badge-spy">الجاسوس</span>
+            <div class="spy-eye-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+                <circle cx="12" cy="12" r="3"/>
+                <line x1="12" y1="2" x2="12" y2="4"/>
+                <line x1="12" y1="20" x2="12" y2="22"/>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+              </svg>
+            </div>
+            <p class="spy-text-main">أنت الجاسوس</p>
+            <p class="spy-text-sub">
+              حاول اكتشاف الكلمة السرية<br />
+              دون أن يكتشف أحد هويتك!
+            </p>
+            <p class="spy-player-name"><strong>${ARABIC_DISPLAY[myName]}</strong></p>
+          </div>
+        `;
+      } else {
+        // CITIZEN card
+        card.innerHTML = `
+          <div class="citizen-card">
+            <span class="role-badge-citizen">مواطن</span>
+            <p class="word-label">الكلمة السرية</p>
+            <div class="secret-word" data-word="${data.secret_word}">${data.secret_word}</div>
+            <p class="word-label" style="margin-top:6px;font-size:0.7rem;opacity:0.5;">
+              لا تكشف الكلمة للجاسوس
+            </p>
+            <p class="citizen-player-name">
+              <strong>${ARABIC_DISPLAY[myName]}</strong> &mdash; أنت مواطن
+            </p>
+          </div>
+        `;
+      }
+
+      // Build replay votes
+      updateReplayUI(data.replay_votes || []);
+    }
+
+    function updateReplayUI(votes) {
+      const row      = document.getElementById('replay-votes-row');
+      const countEl  = document.getElementById('replay-count');
+      const replayBtn = document.getElementById('btn-replay');
+
+      row.innerHTML = '';
+      PLAYER_NAMES.forEach(name => {
+        const chip = document.createElement('div');
+        chip.className = `replay-vote-chip${votes.includes(name) ? ' voted' : ''}`;
+        chip.textContent = ARABIC_DISPLAY[name];
+        row.appendChild(chip);
+      });
+
+      countEl.textContent = votes.length;
+
+      // Disable button if current player already voted
+      if (votes.includes(myName)) {
+        replayBtn.disabled    = true;
+        replayBtn.textContent = 'تم تصويتك بالفعل';
+      } else {
+        replayBtn.disabled    = false;
+        replayBtn.textContent = 'إعادة اللعب';
+      }
+    }
+
+    /* ══════════ REPLAY BUTTON ══════════ */
+    document.getElementById('btn-replay').addEventListener('click', async () => {
+      if (!myName || hasVotedReplay) return;
+
+      const currentSession = await fetchSession();
+      if (!currentSession) return;
+
+      const votes = currentSession.replay_votes || [];
+      if (votes.includes(myName)) {
+        hasVotedReplay = true;
+        updateReplayUI(votes);
+        return;
+      }
+
+      const updatedVotes = [...votes, myName];
+      hasVotedReplay = true;
+
+      if (updatedVotes.length === 4) {
+        // All agreed — reset
+        const word = pickRandom(SECRET_WORDS);
+        const spy  = pickRandom(PLAYER_NAMES);
+        await updateSession({
+          phase:         'playing',
+          ready_players: currentSession.ready_players,
+          secret_word:   word,
+          spy_player:    spy,
+          replay_votes:  [],
+        });
+      } else {
+        await updateSession({ replay_votes: updatedVotes });
+      }
+    });
+
+    /* ══════════ REALTIME SUBSCRIPTION ══════════ */
+    function subscribeToSession() {
+      sb.channel('game-session-channel')
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'game_session', filter: 'id=eq.main' },
+          payload => {
+            const newData = payload.new;
+            session = newData;
+            handleSessionUpdate(newData);
+          }
+        )
+        .subscribe(status => {
+          if (status === 'SUBSCRIBED') setConnStatus(true);
+          else setConnStatus(false);
+        });
+    }
+
+    function handleSessionUpdate(data) {
+      if (data.phase === 'waiting') {
+        // Reset — go back to login
+        myReady        = false;
+        hasVotedReplay = false;
+
+        const selBtn = document.getElementById(`pbtn-${myName}`);
+        if (selBtn) {
+          selBtn.classList.remove('is-ready', 'selected-self', 'ready-other');
+          selBtn.querySelector('.player-status').textContent = 'اضغط للاختيار';
+        }
+
+        document.getElementById('btn-ready').textContent = 'جاهز';
+        document.getElementById('btn-ready').disabled    = false;
+        document.getElementById('divider-wait').style.display = 'none';
+        document.getElementById('card-waiting').style.display  = 'none';
+        switchScreen('screen-login');
+        return;
+      }
+
+      if (data.phase === 'playing') {
+        const readyList = data.ready_players || [];
+
+        // Still on login screen → update waiting panel
+        if (document.getElementById('screen-login').classList.contains('active')) {
+          updateWaitingPanel(readyList);
+
+          // Transition to game if this player is in the ready list
+          if (readyList.includes(myName)) {
+            showTransition(true);
+            setTimeout(() => {
+              buildGameScreen(data);
+              switchScreen('screen-game');
+              showTransition(false);
+            }, 1400);
+          }
+        } else {
+          // Already on game screen — update roles (new round)
+          hasVotedReplay = false;
+          buildGameScreen(data);
+        }
+
+        return;
+      }
+    }
+
+    /* ══════════ INIT ══════════ */
+    async function init() {
+      buildPlayersGrid();
+      setConnStatus(false);
+
+      // Load initial state
+      session = await fetchSession();
+      if (!session) {
+        showToast('خطأ في الاتصال بالخادم');
+        return;
+      }
+
+      setConnStatus(true);
+      subscribeToSession();
+
+      // If game is already playing (e.g. refresh mid-game)
+      // — user must re-identify. Keep on login screen.
+      if (session.phase === 'playing') {
+        showToast('اختر اسمك للانضمام إلى الجلسة الجارية');
+      }
+    }
+
+    init();
+  </script>
+
+</body>
+</html>
